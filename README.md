@@ -5,8 +5,8 @@ Overview
 <b>ReplaceText</b> is a simple mass search & replace
 tool for many text files in many locations.
 
-This utility will take any files (presumably text) referenced as (-Files) and
-replace old text referenced as (-OldText) with new text referenced as (-NewText).
+This utility will take any files (presumably text) referenced as -Files and
+replace old text referenced as -OldText with new text referenced as -NewText.
 
 
 Features
@@ -131,7 +131,7 @@ Options and Features
 
 -NewSubValue="One of many new 'sub replacement' values goes here."
 
-    This a new "sub replacement" value to replace the corresponding
+    This is a new "sub replacement" value to replace the corresponding
     -OldSubValue (see below) within each -OldText value (see below).
 
     See -SubToken below for more details.
@@ -154,7 +154,7 @@ Options and Features
 
 -OldSubValue="One of many old 'sub replacement' values goes here."
 
-    This an old "sub replacement" value to replace the corresponding
+    This is an old "sub replacement" value to replace the corresponding
     -NewSubValue (see above) within each -OldText value (see below).
 
     See -SubToken below for more details.
