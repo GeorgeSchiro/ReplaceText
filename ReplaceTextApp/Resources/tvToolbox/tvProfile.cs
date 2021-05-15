@@ -142,7 +142,7 @@ namespace tvToolbox
     /// Author:     George Schiro (GeoCode@Schiro.name)
     /// </p>
     /// <p>
-    /// Version:    2.24
+    /// Version:    2.25
     /// Copyright:  1996 - 2121
     /// </p>
     /// </summary>
@@ -2643,6 +2643,8 @@ namespace tvToolbox
                     MessageBox.Show(String.Format("\"{0}\" is already running. Please close it and try again."
                                     , Path.GetFileName(this.sExePathFile))
                             , lsExeName);
+
+                    this.bExit = true;
                     return;
                 }
                 else
