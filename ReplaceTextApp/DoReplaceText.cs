@@ -35,6 +35,7 @@ namespace ReplaceText
         private const string    mcsFileChangedKey                   = "-Changed";
         private const string    mcsFileUnchangedKey                 = "-Unchanged";
         private const string    mcsFoundTextKey                     = "-FoundIn";
+        private string          msCurrentProfileAbsPathFile         = null;
 
         [DllImport( "kernel32.dll" )]
         static extern bool AttachConsole( int dwProcessId );
@@ -97,6 +98,8 @@ namespace ReplaceText
                                 if ( lsNewSubReplacementArray.Length != lsOldSubReplacementArray.Length )
                                     lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine)
                                             + "The number of -NewSubValue items must match the number of -OldSubValue items.";
+
+                msCurrentProfileAbsPathFile = Path.GetFullPath(loProfile.sLoadedPathFile);
 
                 loProfile.GetAdd("-Help",
                         @"
@@ -600,6 +603,10 @@ Apply a boolean ""or"" to any of the following:
 
                 foreach (string lsFilesToReplacePathFile in lsFilesToReplacePathFilesArray)
                 {
+                    // Don't include the profile file currently in use.
+                    if ( Path.GetFullPath(lsFilesToReplacePathFile) == msCurrentProfileAbsPathFile )
+                        continue;
+
                     System.Windows.Forms.Application.DoEvents();
 
                     string lsFilename = Path.GetFileName(lsFilesToReplacePathFile);
