@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -35,6 +36,12 @@ namespace ReplaceText
         private const string    mcsFileChangedKey                   = "-Changed";
         private const string    mcsFileUnchangedKey                 = "-Unchanged";
         private const string    mcsFoundTextKey                     = "-FoundIn";
+        private const string    mcsFileFoundKeyPrefix               = "-FileFound_";
+        private const string    mcsFileItemsFoundKey                = "-FilesWithItemsFound";
+        private const string    mcsFileItemsFoundPreviousKey        = "-FilesWithItemsFound_previous";
+        private const string    mcsFilesWithDiscrepanciesKey        = "-FilesWithDiscrepancies";
+        private const string    mcsNewTextKey                       = "-NewText";
+        private const string    mcsOldTextKey                       = "-OldText";
         private string          msCurrentProfileAbsPathFile         = null;
 
         [DllImport( "kernel32.dll" )]
@@ -66,12 +73,12 @@ namespace ReplaceText
         {
             this.Hide();
 
-            string      lsErrorMessages         = null;
-            tvProfile   loProfile               = null;
-            bool        lbCopyResultsToSTDOUT   = false;
-            bool        lbDisplayResults        = false;
-            bool        lbNoPrompts             = false;
-            string      lsDisplayResultsCommand = null;
+            string      lsErrorMessages          = null;
+            tvProfile   loProfile                = null;
+            bool        lbCopyResultsToSTDOUT    = false;
+            bool        lbDisplayResults         = false;
+            bool        lbNoPrompts              = false;
+            string      lsDisplayResultsCommand  = null;
 
             try
             {
@@ -107,24 +114,24 @@ Introduction
 
 
 This utility will take any files (presumably text) referenced as -Files and
-replace old text referenced as -OldText with new text referenced as -NewText.
+replace old text referenced as mcsOldTextKey with new text referenced as mcsNewTextKey.
 
 Notes:
 
 New text substrings MUST correspond to old text substrings, one-to-one.
 
-If the values of -NewText and -OldText are IDENTICAL and -OldText is found in a
+If the values of mcsNewTextKey and mcsOldTextKey are IDENTICAL and mcsOldTextKey is found in a
 file, the file will be identified with mcsFoundTextKey and it will remain unchanged.
 
     BE CAREFUL!!! If you intend to do searches using this technique,
                   -CaseInsensitiveSearch should be set False.
                   You should use the -SearchOnly switch instead.
 
-If -SearchOnly=False and the values of -NewText and -OldText are not identical
-and -OldText is found in a file, the file will be identified with mcsFileChangedKey.
+If -SearchOnly=False and the values of mcsNewTextKey and mcsOldTextKey are not identical
+and mcsOldTextKey is found in a file, the file will be identified with mcsFileChangedKey.
 
-If -SearchOnly=False and the values of -NewText and -OldText are not identical and
--OldText is NOT found in a file, the file will be identified with mcsFileUnchangedKey.
+If -SearchOnly=False and the values of mcsNewTextKey and mcsOldTextKey are not identical and
+mcsOldTextKey is NOT found in a file, the file will be identified with mcsFileUnchangedKey.
 
 
 The MIT License (MIT)
@@ -184,8 +191,8 @@ A brief description of each feature follows.
 -CaseInsensitiveSearch=False
 
     Set this switch True and the original version plus both uppercase and
-    lowercase versions of each given -OldText value (not mixed-case versions)
-    will be replaced (see -OldText below).
+    lowercase versions of each given mcsOldTextKey value (not mixed-case versions)
+    will be replaced (see mcsOldTextKey below).
 
 -CopyResultsToSTDOUT=False
 
@@ -227,16 +234,16 @@ A brief description of each feature follows.
 -NewSubValue=""One of many new 'sub replacement' values goes here.""
 
     This is a new ""sub replacement"" value to replace the corresponding
-    -OldSubValue (see below) within each -OldText value (see below).
+    -OldSubValue (see below) within each mcsOldTextKey value (see below).
 
     See -SubToken below for more details.
 
     Note: This key may appear any number of times in the profile.
 
--NewText=""One of many new text replacement substrings goes here.""
+mcsNewTextKey=""One of many new text replacement substrings goes here.""
 
     This is a new text substring to replace a corresponding old text
-    substring (see -OldText below) in all of the files given by the
+    substring (see mcsOldTextKey below) in all of the files given by the
     various -Files specifications (see above).
 
     Note: This key may appear any number of times in the profile.
@@ -250,16 +257,16 @@ A brief description of each feature follows.
 -OldSubValue=""One of many old 'sub replacement' values goes here.""
 
     This is an old ""sub replacement"" value to replace the corresponding
-    -NewSubValue (see above) within each -OldText value (see below).
+    -NewSubValue (see above) within each mcsOldTextKey value (see below).
 
     See -SubToken below for more details.
 
     Note: This key may appear any number of times in the profile.
 
--OldText=""One of many old text substrings to replace goes here.""
+mcsOldTextKey=""One of many old text substrings to replace goes here.""
 
     This is an old text substring to be replaced by a corresponding
-    new text substring (see -NewText above) in all of the files given
+    new text substring (see mcsNewTextKey above) in all of the files given
     by the various -Files specifications (see above).
 
     Note: This key may appear any number of times in the profile.
@@ -267,7 +274,7 @@ A brief description of each feature follows.
 -RecurseSubdirectories=True
 
     Set this switch False and only the base directory found in each
-    -Files specification (see above) will be searched for -OldText
+    -Files specification (see above) will be searched for mcsOldTextKey
     (see above). Otherwise, every file matching the -Files specifications
     found in every subdirectory from each base subdirectory onward will
     be searched.
@@ -289,8 +296,8 @@ A brief description of each feature follows.
 
     Set this switch False and all files matching the specifications in
     the -Files parameters (see above) will be updated if they contain at
-    least one -OldText value (see above). Otherwise, each matching file
-    that contains at least one -OldText value will be displayed with the
+    least one mcsOldTextKey value (see above). Otherwise, each matching file
+    that contains at least one mcsOldTextKey value will be displayed with the
     mcsFoundTextKey key.
 
 -ShowProfile=False
@@ -304,50 +311,61 @@ A brief description of each feature follows.
     A ""sub replacement token"" (lsSubReplacementToken) can be used to
     pass a common substring value referenced as (-OldSubValue) to be
     replaced with the corresponding -NewSubValue (see above) within each
-    (-OldText) value.
+    (mcsOldTextKey) value.
 
     Any number of -OldSubValue,-NewSubValue pairs can be given, all of
-    which will be replaced in every -OldText value (if found there).
+    which will be replaced in every mcsOldTextKey value (if found there).
 
     This feature is useful if you have many text fragments that differ
-    only in minor ways. This way you can list a single -OldText value
+    only in minor ways. This way you can list a single mcsOldTextKey value
     (or a few) and have many -OldSubValue,-NewSubValue pairs to drive
     the replacement process.
 
-    Each instance of -OldText will have its {{SubToken}} replaced with
-    each -OldSubValue. Likewise, each instance of -NewText will be
-    replaced with a copy of the original -OldText with {{SubToken}}
+    Each instance of mcsOldTextKey will have its {{SubToken}} replaced with
+    each -OldSubValue. Likewise, each instance of mcsNewTextKey will be
+    replaced with a copy of the original mcsOldTextKey with {{SubToken}}
     replaced with the corresponding -NewSubValue.
 
-    Finally, the modified pairs of -OldText,-NewText values will be used
+    Finally, the modified pairs of mcsOldTextKey,mcsNewTextKey values will be used
     to replace text within your files (see -Files above).
 
     Here's an example:
 
-        -OldText=Old text {{SubToken}} to be replaced.
-        -NewText=(This will be ignored.)
+        mcsOldTextKey=Old text {{SubToken}} to be replaced.
+        mcsNewTextKey=(This will be ignored.)
         -OldSubValue=abc
         -NewSubValue=def
         -OldSubValue=123
         -NewSubValue=456
 
-        Here are the resulting -OldText,-NewText pairs that would be used:
+        Here are the resulting mcsOldTextKey,mcsNewTextKey pairs that would be used:
 
-        -OldText=Old text abc to be replaced.
-        -NewText=Old text def to be replaced.
-        -OldText=Old text 123 to be replaced.
-        -NewText=Old text 456 to be replaced.
+        mcsOldTextKey=Old text abc to be replaced.
+        mcsNewTextKey=Old text def to be replaced.
+        mcsOldTextKey=Old text 123 to be replaced.
+        mcsNewTextKey=Old text 456 to be replaced.
+
+-TrackItemsFoundPerFile=False
+
+    Set this switch True to have every mcsOldTextKey item found in every file
+    tracked during the current run. Each mcsOldTextKey item found is compared
+    to corresponding items found during the previous run. If there are
+    any discrepancies found between the current run and the previous run,
+    a warning dialog will be displayed (assuming -NoPrompts is false, see
+    above). This can be helpful to catch inadvertent manual text edits that
+    often break software otherwise maintained by automated code transforms
+    implemented via a tool like this.
 
 -UseRegularExpressions=False
 
-    Set this switch True to use regular expressions in the -OldText values
+    Set this switch True to use regular expressions in the mcsOldTextKey values
     (see above). Even with -UseRegularExpressions=False, you can still use
     standard regular expression escapes to replace most special characters
     (be sure to set -UseSpecialCharacters=True, see below).
 
 -UseSpecialCharacters=False
 
-    Set this switch True to use special characters in the -OldText
+    Set this switch True to use special characters in the mcsOldTextKey
     values (see above). Here are the supported special characters:
 
     \b  = bell
@@ -381,6 +399,8 @@ Notes:
                         .Replace("mcsFoundTextKey", mcsFoundTextKey)
                         .Replace("mcsFileChangedKey", mcsFileChangedKey)
                         .Replace("mcsFileUnchangedKey", mcsFileUnchangedKey)
+                        .Replace("mcsNewTextKey", mcsNewTextKey)
+                        .Replace("mcsOldTextKey", mcsOldTextKey)
                         .Replace("{EXE}", System.AppDomain.CurrentDomain.FriendlyName)
                         .Replace("{INI}", Path.GetFileName(loProfile.sActualPathFile))
                         .Replace("{{", "{")
@@ -411,6 +431,7 @@ Apply a boolean ""or"" to any of the following:
                             lbCopyResultsToSTDOUT = loProfile.bValue("-CopyResultsToSTDOUT", false);
                 bool        lbSearchOnly = loProfile.bValue("-SearchOnly", true);
                 bool        lbRecurseSubdirectories = loProfile.bValue("-RecurseSubdirectories", true);
+                bool        lbTrackItemsFoundPerFile = loProfile.bValue("-TrackItemsFoundPerFile", false);
                 bool        lbCaseInsensitiveSearch = loProfile.bValue("-CaseInsensitiveSearch", false);
 
                             // Fetch source code.
@@ -419,10 +440,10 @@ Apply a boolean ""or"" to any of the following:
 
                 string[]    lsFilesToReplacePathFilesArray = loProfile.sOneKeyArray("-Files");
                             loProfile.GetAdd("-Files", "One of many 'files to replace' pathfile(s) specifications goes here.");
-                tvProfile   loOldTextToReplaceProfile = loProfile.oOneKeyProfile("-OldText", false);
-                            loProfile.GetAdd("-OldText", "One of many old text substrings to replace goes here.");
+                tvProfile   loOldTextToReplaceProfile = loProfile.oOneKeyProfile(mcsOldTextKey, false);
+                            loProfile.GetAdd(mcsOldTextKey, "One of many old text substrings to replace goes here.");
                             this.ReplaceSpecialCharacters(loOldTextToReplaceProfile);
-                string[]    lsOldTextToReplaceArray = loOldTextToReplaceProfile.sOneKeyArrayNoTrim("-OldText");
+                string[]    lsOldTextToReplaceArray = loOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
                 string[]    lsOldTextToReplaceArrayToLower = null;
                 string[]    lsOldTextToReplaceArrayToUpper = null;
                             if ( lbCaseInsensitiveSearch )
@@ -436,17 +457,21 @@ Apply a boolean ""or"" to any of the following:
                                     lsOldTextToReplaceArrayToUpper[i] = lsOldTextToReplaceArray[i].ToUpper();
                                 }
                             }
-                string[]    lsNewTextArray = loProfile.sOneKeyArrayNoTrim("-NewText");
-                            loProfile.GetAdd("-NewText", "One of many new text replacement substrings goes here.");
+                string[]    lsNewTextArray = loProfile.sOneKeyArrayNoTrim(mcsNewTextKey);
+                            loProfile.GetAdd(mcsNewTextKey, "One of many new text replacement substrings goes here.");
                             this.ReplaceSpecialCharacters(lsNewTextArray);
 
                             if ( lsNewTextArray.Length != lsOldTextToReplaceArray.Length )
                                 lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine)
-                                        + "The number of -NewText items must match the number of -OldText items.";
+                                        + "The number of mcsNewTextKey items must match the number of mcsOldTextKey items.".Replace("mcsOldTextKey", mcsOldTextKey).Replace("mcsNewTextKey", mcsNewTextKey);
 
-                tvProfile   loProfileFilesChanged = new tvProfile();
-                tvProfile   loProfileFilesUnChanged = new tvProfile();
-                tvProfile   loProfileFilesFoundText = new tvProfile();
+                tvProfile   loDiscrepanciesProfile   = new tvProfile();
+                tvProfile   loFilesChangedProfile = new tvProfile();
+                tvProfile   loFilesUnChangedProfile = new tvProfile();
+                tvProfile   loFilesAnyTextFoundProfile = new tvProfile();
+                tvProfile   loItemsFoundPerFileProfile = null;
+                            if ( lbTrackItemsFoundPerFile )
+                                loItemsFoundPerFileProfile = new tvProfile();
                 bool        lbFilesFound = false;
                 bool        lbErrorOtherThanFilesNotFound = false;
 
@@ -468,9 +493,10 @@ Apply a boolean ""or"" to any of the following:
                                 , ref lsOldTextToReplaceArrayToLower
                                 , ref lsOldTextToReplaceArrayToUpper
                                 , ref lsNewTextArray
-                                , ref loProfileFilesChanged
-                                , ref loProfileFilesUnChanged
-                                , ref loProfileFilesFoundText
+                                , ref loFilesChangedProfile
+                                , ref loFilesUnChangedProfile
+                                , ref loFilesAnyTextFoundProfile
+                                , ref loItemsFoundPerFileProfile
                                 , ref loProfile
                                 , out lbLoopFilesFound
                                 , out lbLoopErrorOtherThanFilesNotFound
@@ -486,27 +512,149 @@ Apply a boolean ""or"" to any of the following:
                 }
 
                 loProfile.Remove(mcsFileChangedKey);
-                loProfile.Remove(mcsFoundTextKey);
                 loProfile.Remove(mcsFileUnchangedKey);
+                loProfile.Remove(mcsFoundTextKey);
+                loProfile.Remove(mcsFilesWithDiscrepanciesKey);
 
-                loProfile.LoadFromCommandLineArray(loProfileFilesChanged.sCommandLineArray(), tvProfileLoadActions.Append);
-                loProfile.LoadFromCommandLineArray(loProfileFilesFoundText.sCommandLineArray(), tvProfileLoadActions.Append);
-                loProfile.LoadFromCommandLineArray(loProfileFilesUnChanged.sCommandLineArray(), tvProfileLoadActions.Append);
-                loProfile.Save();
+                loProfile.LoadFromCommandLineArray(loFilesChangedProfile.sCommandLineArray(), tvProfileLoadActions.Append);
+                loProfile.LoadFromCommandLineArray(loFilesUnChangedProfile.sCommandLineArray(), tvProfileLoadActions.Append);
+                loProfile.LoadFromCommandLineArray(loFilesAnyTextFoundProfile.sCommandLineArray(), tvProfileLoadActions.Append);
+
+                if ( !lbTrackItemsFoundPerFile )
+                {
+                    loProfile.Remove(mcsFileItemsFoundKey);
+                    loProfile.Remove(mcsFileItemsFoundPreviousKey);
+                }
+                else
+                {
+                    if ( !loProfile.ContainsKey(mcsFileItemsFoundKey) )
+                    {
+                        loProfile.Remove(mcsFileItemsFoundPreviousKey);
+                        loProfile[mcsFileItemsFoundKey] = loItemsFoundPerFileProfile.ToString();
+                    }
+                    else
+                    {
+                        string      lsPreviousFiles = loProfile.sValue(mcsFileItemsFoundKey, "");
+                        tvProfile   loPreviousFiles = new tvProfile(lsPreviousFiles);
+                                    loPreviousFiles.Sort();  // Do similar sort below.
+
+                        loProfile[mcsFileItemsFoundPreviousKey] = lsPreviousFiles;
+                        loProfile[mcsFileItemsFoundKey] = loItemsFoundPerFileProfile.ToString();
+
+                        // Sort current files to match sort order of previous files.
+                        loItemsFoundPerFileProfile.Sort();
+
+                        // Compare current files to previous files.
+                        if ( loPreviousFiles.Count != loItemsFoundPerFileProfile.Count )
+                        {
+                            if ( 0 == loItemsFoundPerFileProfile.Count && !lbSearchOnly )
+                            {
+                                // Ignore "all unchanged" runs.
+                                loProfile[mcsFileItemsFoundKey] = loProfile.sValue(mcsFileItemsFoundPreviousKey, "");
+                                loProfile.Remove(mcsFileItemsFoundPreviousKey);
+                            }
+                            else
+                            {
+                                loDiscrepanciesProfile.Add("-FileList"
+                                        , String.Format("{2}{0}={1}{2}{2}", "-FileCountMismatch"
+                                        , String.Format("The numer of files found varies between runs: previous run: {0}, this run: {1}."
+                                        , loPreviousFiles.Count, loItemsFoundPerFileProfile.Count), Environment.NewLine));
+                            }
+                        }
+                        else
+                            for (int i=0; i < loItemsFoundPerFileProfile.Count; i++)
+                            {
+                                string lsCurrentFile = loItemsFoundPerFileProfile[i].ToString();
+                                string lsPreviousFile = loPreviousFiles[i].ToString();
+
+                                // Files don't match. Which item?
+                                if ( lsCurrentFile != lsPreviousFile )
+                                {
+                                    tvProfile   loCurrentItems = new tvProfile(lsCurrentFile);
+                                    tvProfile   loPreviousItems = new tvProfile(lsPreviousFile);
+                                    string      lsFirstDiscrepancy = null;
+
+                                    for (int j=0; j < loCurrentItems.Count; j++)
+                                    {
+                                        string lsCurrentItem = loCurrentItems[j].ToString();
+                                        string lsPreviousItem = loPreviousItems[j].ToString();
+
+                                        if ( lsCurrentItem != lsPreviousItem )
+                                        {
+                                            lsFirstDiscrepancy = loPreviousItems[j].ToString();
+                                            break;
+                                        }
+                                    }
+
+                                    loDiscrepanciesProfile.Add(loItemsFoundPerFileProfile.sKey(i)
+                                            , String.Format("{2}{0}={1}{2}{2}", mcsOldTextKey, lsFirstDiscrepancy, Environment.NewLine));
+                                }
+                            }
+
+                        if ( 0 == loDiscrepanciesProfile.Count )
+                            loProfile.Remove(mcsFileItemsFoundPreviousKey);
+                        else
+                            loProfile[mcsFilesWithDiscrepanciesKey] = loDiscrepanciesProfile.ToString();
+                    }
+                }
 
                 if ( lbCopyResultsToSTDOUT )
                 {
                     AttachConsole(ATTACH_PARENT_PROCESS);
 
-                    if ( 0 != loProfileFilesChanged.Count )
-                        Console.Write(loProfileFilesChanged.sCommandBlock());
-                    if ( 0 != loProfileFilesFoundText.Count )
-                        Console.Write(loProfileFilesFoundText.sCommandBlock());
+                    if ( 0 != loFilesChangedProfile.Count )
+                        Console.Write(loFilesChangedProfile.sCommandBlock());
+                    if ( 0 != loFilesAnyTextFoundProfile.Count )
+                        Console.Write(loFilesAnyTextFoundProfile.sCommandBlock());
                 }
 
                 if ( !lbFilesFound && !lbIgnoreNoFilesFound )
                     lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine)
                             + "No files could be found!";
+
+                if ( !lbNoPrompts && null == lsErrorMessages && lbTrackItemsFoundPerFile
+                        && 0 != loDiscrepanciesProfile.Count && 0 != loFilesChangedProfile.Count )
+                {
+                    string  lsWord = 1 != loDiscrepanciesProfile.Count ? "Discrepancies" : "Discrepancy";
+                    string  lsTitle = String.Format("{0} - {1} {2} Found Comparing Runs, Expected?", this.Text, loDiscrepanciesProfile.Count, lsWord);
+                    string  lsYesNoInstructions = String.Format(@"
+     [Yes]   {0} expected, no problem, reset everything for next run.
+ 
+      [No]   {0} NOT expected, I'll edit problem text and try again.
+
+[Cancel]   Leave findings in place, I want to wade through the details myself.
+
+                 Note: You may need to use '[Yes]' or '[No]' more than once (now
+                           as well as after running the complementary transforms).
+                            ", lsWord);
+                    DialogResult leDialogResult = DialogResult.None;
+
+                    this.Hide();
+
+                    leDialogResult = System.Windows.Forms.MessageBox.Show(loDiscrepanciesProfile.ToString() + lsYesNoInstructions, lsTitle
+                            , MessageBoxButtons.YesNoCancel, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button2);
+
+                    switch(leDialogResult)
+                    {
+                        case DialogResult.Yes:
+                            loProfile.Remove(mcsFileItemsFoundKey);
+                            loProfile.Remove(mcsFileItemsFoundPreviousKey);
+                            loProfile.Remove(mcsFilesWithDiscrepanciesKey);
+                            break;
+
+                        case DialogResult.No:
+                            loProfile[mcsFileItemsFoundKey] = loProfile.sValue(mcsFileItemsFoundPreviousKey, "");
+                            loProfile.Remove(mcsFileItemsFoundPreviousKey);
+                            break;
+                    }
+
+                    if ( loProfile.bValue("-TrackItemsFoundPerFileCopyDiscrepanciesToClipboard", true) )
+                    {
+                        System.Windows.Forms.Clipboard.SetText(loDiscrepanciesProfile.ToString());
+                        System.Windows.Forms.MessageBox.Show(String.Format("{0} copied to clipboard."
+                                , lsWord), String.Format("{0} - {1} {2} Found", this.Text, loDiscrepanciesProfile.Count, lsWord));
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -559,9 +707,10 @@ Apply a boolean ""or"" to any of the following:
             , ref string[] asOldTextToReplaceArrayToLower
             , ref string[] asOldTextToReplaceArrayToUpper
             , ref string[] asNewTextArray
-            , ref tvProfile aoProfileFilesChanged
-            , ref tvProfile aoProfileFilesUnChanged
-            , ref tvProfile aoProfileFilesFoundText
+            , ref tvProfile aoFilesChangedProfile
+            , ref tvProfile aoFilesUnChangedProfile
+            , ref tvProfile aoFilesAnyTextFoundProfile
+            , ref tvProfile aoItemsFoundPerFileProfile
             , ref tvProfile aoProfile
             , out bool abFilesFound
             , out bool abErrorOtherThanFilesNotFound
@@ -578,6 +727,7 @@ Apply a boolean ""or"" to any of the following:
                         if ( lbUseRegularExpressions )
                             leRegexOptions = (RegexOptions)aoProfile.iValue("-RegexOptions", (int)RegexOptions.Singleline);
             bool        lbRecurseSubdirectories = aoProfile.bValue("-RecurseSubdirectories", false);
+            bool        lbTrackItemsFoundPerFile = aoProfile.bValue("-TrackItemsFoundPerFile", false);
             bool        lbHasToken = false;
                         if ( !String.IsNullOrEmpty(lsSubReplacementToken) )
                             for (int i=0; i < asOldTextToReplaceArray.Length; i++)
@@ -609,7 +759,8 @@ Apply a boolean ""or"" to any of the following:
 
                     System.Windows.Forms.Application.DoEvents();
 
-                    string lsFilename = Path.GetFileName(lsFilesToReplacePathFile);
+                    List<string>    loOldTextFoundList = new List<string>();
+                    string          lsFilename = Path.GetFileName(lsFilesToReplacePathFile);
 
                     if ( !lbNoPrompts )
                     {
@@ -632,14 +783,14 @@ Apply a boolean ""or"" to any of the following:
                             if ( lbHasToken )
                             {
                                 // Reset the old text array before replacing tokens.
-                                asOldTextToReplaceArray = aoOldTextToReplaceProfile.sOneKeyArrayNoTrim("-OldText");
+                                asOldTextToReplaceArray = aoOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
 
                                 for (int i=0; i < asOldTextToReplaceArray.Length; i++)
                                     asOldTextToReplaceArray[i] = asOldTextToReplaceArray[i]
                                             .Replace(lsSubReplacementToken, asOldSubReplacementArray[liSubReplaceIndex]);
 
                                 // Redefine the new text array to that of the old before replacing tokens.
-                                asNewTextArray = aoOldTextToReplaceProfile.sOneKeyArrayNoTrim("-OldText");
+                                asNewTextArray = aoOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
 
                                 for (int i=0; i < asNewTextArray.Length; i++)
                                     asNewTextArray[i] = asNewTextArray[i]
@@ -655,8 +806,19 @@ Apply a boolean ""or"" to any of the following:
                                     {
                                         Regex loRegex = new Regex(asOldTextToReplaceArray[i], leRegexOptions);
 
-                                        if (!lbHasOldText && loRegex.IsMatch(lsFileAsStream))
-                                            lbHasOldText = true;
+                                        if ( !lbTrackItemsFoundPerFile )
+                                        {
+                                            if ( !lbHasOldText && loRegex.IsMatch(lsFileAsStream) )
+                                                lbHasOldText = true;
+                                        }
+                                        else
+                                        if ( loRegex.IsMatch(lsFileAsStream) )
+                                        {
+                                            if ( !lbHasOldText )
+                                                lbHasOldText = true;
+
+                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
+                                        }
 
                                         lsFileAsStream = loRegex.Replace(lsFileAsStream, asNewTextArray[i]);
                                     }
@@ -668,8 +830,19 @@ Apply a boolean ""or"" to any of the following:
                                     // Replace old with new text substrings.
                                     for (int i=0; i < asOldTextToReplaceArray.Length; i++)
                                     {
-                                        if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
-                                            lbHasOldText = true;
+                                        if ( !lbTrackItemsFoundPerFile )
+                                        {
+                                            if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
+                                                lbHasOldText = true;
+                                        }
+                                        else
+                                        if ( lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
+                                        {
+                                            if ( !lbHasOldText )
+                                                lbHasOldText = true;
+
+                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
+                                        }
 
                                         lsbFileAsStream.Replace(asOldTextToReplaceArray[i], asNewTextArray[i]);
                                     }
@@ -688,12 +861,19 @@ Apply a boolean ""or"" to any of the following:
                                         Regex loToLowerRegex = new Regex(asOldTextToReplaceArrayToLower[i], leRegexOptions);
                                         Regex loToUpperRegex = new Regex(asOldTextToReplaceArrayToUpper[i], leRegexOptions);
 
-                                        if ( !lbHasOldText && loRegex.IsMatch(lsFileAsStream) )
-                                            lbHasOldText = true;
-                                        if ( !lbHasOldText && loToLowerRegex.IsMatch(lsFileAsStream) )
-                                            lbHasOldText = true;
-                                        if ( !lbHasOldText && loToUpperRegex.IsMatch(lsFileAsStream) )
-                                            lbHasOldText = true;
+                                        if ( !lbTrackItemsFoundPerFile )
+                                        {
+                                            if ( !lbHasOldText && (loRegex.IsMatch(lsFileAsStream) || loToLowerRegex.IsMatch(lsFileAsStream) || loToUpperRegex.IsMatch(lsFileAsStream)) )
+                                                lbHasOldText = true;
+                                        }
+                                        else
+                                        if ( loRegex.IsMatch(lsFileAsStream) || loToLowerRegex.IsMatch(lsFileAsStream) || loToUpperRegex.IsMatch(lsFileAsStream) )
+                                        {
+                                            if ( !lbHasOldText )
+                                                lbHasOldText = true;
+
+                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
+                                        }
 
                                         lsFileAsStream = loRegex.Replace(lsFileAsStream, asNewTextArray[i]);
                                         lsFileAsStream = loToLowerRegex.Replace(lsFileAsStream, asNewTextArray[i]);
@@ -707,12 +887,26 @@ Apply a boolean ""or"" to any of the following:
                                     // Replace old with new text substrings.
                                     for (int i=0; i < asOldTextToReplaceArray.Length; i++)
                                     {
-                                        if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
-                                            lbHasOldText = true;
-                                        if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1 )
-                                            lbHasOldText = true;
-                                        if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1 )
-                                            lbHasOldText = true;
+                                        if ( !lbTrackItemsFoundPerFile )
+                                        {
+                                            if ( !lbHasOldText && (lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1
+                                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1
+                                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1
+                                                                )
+                                                        )
+                                                lbHasOldText = true;
+                                        }
+                                        else
+                                        if (       lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1
+                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1
+                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1
+                                                )
+                                        {
+                                            if ( !lbHasOldText )
+                                                lbHasOldText = true;
+
+                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
+                                        }
 
                                         lsbFileAsStream.Replace(asOldTextToReplaceArray[i], asNewTextArray[i]);
                                         lsbFileAsStream.Replace(asOldTextToReplaceArrayToLower[i], asNewTextArray[i]);
@@ -727,10 +921,10 @@ Apply a boolean ""or"" to any of the following:
                         if ( lbSearchOnly || lsFileAsStream == lsOriginalFileAsStream )
                         {
                             if ( lbHasOldText )
-                                aoProfileFilesFoundText.Add(mcsFoundTextKey, lsFilesToReplacePathFile);
+                                aoFilesAnyTextFoundProfile.Add(mcsFoundTextKey, lsFilesToReplacePathFile);
                             else
                             if ( !lbSearchOnly )
-                                aoProfileFilesUnChanged.Add(mcsFileUnchangedKey, lsFilesToReplacePathFile);
+                                aoFilesUnChangedProfile.Add(mcsFileUnchangedKey, lsFilesToReplacePathFile);
                         }
                         else
                         {
@@ -740,7 +934,7 @@ Apply a boolean ""or"" to any of the following:
                             loStreamWriter.Write(lsFileAsStream.Substring(0, lsFileAsStream.Length - Environment.NewLine.Length));
                             loStreamWriter.Close();
 
-                            aoProfileFilesChanged.Add(mcsFileChangedKey, lsFilesToReplacePathFile);
+                            aoFilesChangedProfile.Add(mcsFileChangedKey, lsFilesToReplacePathFile);
                         }
                     }
                     catch (Exception ex)
@@ -752,6 +946,15 @@ Apply a boolean ""or"" to any of the following:
                                 , ex.Message
                                 , lsFilename
                                 );
+                    }
+
+                    if ( lbTrackItemsFoundPerFile && 0 != loOldTextFoundList.Count )
+                    {
+                        tvProfile   loItemFoundProfile = new tvProfile();
+                                    foreach(string lsItem in loOldTextFoundList)
+                                        loItemFoundProfile.Add(mcsOldTextKey, lsItem);
+
+                        aoItemsFoundPerFileProfile.Add(mcsFileFoundKeyPrefix + lsFilesToReplacePathFile, loItemFoundProfile.ToString());
                     }
                 } // End files loop
             }
@@ -793,9 +996,10 @@ Apply a boolean ""or"" to any of the following:
                             , ref asOldTextToReplaceArrayToLower
                             , ref asOldTextToReplaceArrayToUpper
                             , ref asNewTextArray
-                            , ref aoProfileFilesChanged
-                            , ref aoProfileFilesUnChanged
-                            , ref aoProfileFilesFoundText
+                            , ref aoFilesChangedProfile
+                            , ref aoFilesUnChangedProfile
+                            , ref aoFilesAnyTextFoundProfile
+                            , ref aoItemsFoundPerFileProfile
                             , ref aoProfile
                             , out lbLoopFilesFound
                             , out lbLoopErrorOtherThanFilesNotFound

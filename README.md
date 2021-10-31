@@ -243,6 +243,17 @@ Options and Features
         -OldText=Old text 123 to be replaced.
         -NewText=Old text 456 to be replaced.
 
+-TrackItemsFoundPerFile=False
+
+    Set this switch True to have every -OldText item found in every file
+    tracked during the current run. Each -OldText item found is compared
+    to corresponding items found during the previous run. If there are
+    any discrepancies found between the current run and the previous run,
+    a warning dialog will be displayed (assuming -NoPrompts is false, see
+    above). This can be helpful to catch inadvertent manual text edits that
+    often break software otherwise maintained by automated code transforms
+    implemented via a tool like this.
+
 -UseRegularExpressions=False
 
     Set this switch True to use regular expressions in the -OldText values
