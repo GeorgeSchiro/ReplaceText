@@ -42,7 +42,11 @@ namespace ReplaceText
         private const string    mcsFilesWithDiscrepanciesKey        = "-FilesWithDiscrepancies";
         private const string    mcsNewTextKey                       = "-NewText";
         private const string    mcsOldTextKey                       = "-OldText";
-        private string          msCurrentProfileAbsPathFile         = null;
+        private const string    mcsNewSubValKey                     = "-NewSubValue";
+        private const string    mcsOldSubValKey                     = "-OldSubValue";
+        private const string    mcsSubTokenResults                  = "-SubTokenReplacements";
+        private string          msCurrentExeAbsPathFile             = null;
+        private string          msCurrentIniAbsPathFile             = null;
 
         [DllImport( "kernel32.dll" )]
         static extern bool AttachConsole( int dwProcessId );
@@ -92,21 +96,24 @@ namespace ReplaceText
 
                 bool            lbUseRegularExpressions = loProfile.bValue("-UseRegularExpressions", false);
                                 mbUseSpecialCharacters  = loProfile.bValue("-UseSpecialCharacters", false);
+                bool            lbListSubTokenReplacements = loProfile.bValue("-ListSubTokenReplacements", false);
                 RegexOptions    leRegexOptions = RegexOptions.None;
-                string          lsSubReplacementToken = loProfile.sValue("-SubToken", "{SubToken}");
                                 // This must appear before the array load so that at least one item is always available.
-                                loProfile.GetAdd("-OldSubValue", "One of many old 'sub replacement' values goes here.");
-                string[]        lsOldSubReplacementArray = loProfile.sOneKeyArray("-OldSubValue");
-                                loProfile.GetAdd("-NewSubValue", "One of many new 'sub replacement' values goes here.");
+                                loProfile.GetAdd("-SubToken", "One of many 'sub replacement' tokens goes here.");
+                string[]        lsSubTokenArray = loProfile.sOneKeyArray("-SubToken");
+                                loProfile.GetAdd(mcsOldSubValKey, "One of many old 'sub replacement' values goes here.");
+                string[]        lsOldSubReplacementArray = loProfile.sOneKeyArray(mcsOldSubValKey);
                                 this.ReplaceSpecialCharacters(lsOldSubReplacementArray);
-                string[]        lsNewSubReplacementArray = loProfile.sOneKeyArray("-NewSubValue");
+                                loProfile.GetAdd(mcsNewSubValKey, "One of many new 'sub replacement' values goes here.");
+                string[]        lsNewSubReplacementArray = loProfile.sOneKeyArray(mcsNewSubValKey);
                                 this.ReplaceSpecialCharacters(lsNewSubReplacementArray);
 
                                 if ( lsNewSubReplacementArray.Length != lsOldSubReplacementArray.Length )
                                     lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine)
-                                            + "The number of -NewSubValue items must match the number of -OldSubValue items.";
+                                            + String.Format("The number of {0} items must match the number of {1} items.", mcsNewSubValKey, mcsOldSubValKey);
 
-                msCurrentProfileAbsPathFile = Path.GetFullPath(loProfile.sLoadedPathFile);
+                msCurrentExeAbsPathFile = loProfile.sExePathFile;
+                msCurrentIniAbsPathFile = Path.GetFullPath(loProfile.sLoadedPathFile);
 
                 loProfile.GetAdd("-Help",
                         @"
@@ -118,20 +125,21 @@ replace old text referenced as mcsOldTextKey with new text referenced as mcsNewT
 
 Notes:
 
-New text substrings MUST correspond to old text substrings, one-to-one.
+New text strings MUST correspond to old text strings, one-to-one.
 
-If the values of mcsNewTextKey and mcsOldTextKey are IDENTICAL and mcsOldTextKey is found in a
-file, the file will be identified with mcsFoundTextKey and it will remain unchanged.
+If mcsNewTextKey and mcsOldTextKey are IDENTICAL and mcsOldTextKey is found in a file,
+the file will be identified with mcsFoundTextKey and it will remain unchanged.
 
-    BE CAREFUL!!! If you intend to do searches using this technique,
+   BE CAREFUL!!!  If you intend to do searches using this technique,
                   -CaseInsensitiveSearch should be set False.
+
                   You should use the -SearchOnly switch instead.
 
-If -SearchOnly=False and the values of mcsNewTextKey and mcsOldTextKey are not identical
-and mcsOldTextKey is found in a file, the file will be identified with mcsFileChangedKey.
+If -SearchOnly is False and mcsNewTextKey and mcsOldTextKey are not identical
+(and mcsOldTextKey is found in a file), the file will be identified with mcsFileChangedKey.
 
-If -SearchOnly=False and the values of mcsNewTextKey and mcsOldTextKey are not identical and
-mcsOldTextKey is NOT found in a file, the file will be identified with mcsFileUnchangedKey.
+If -SearchOnly is False and mcsNewTextKey and mcsOldTextKey are not identical (and
+mcsOldTextKey is NOT found in a file), the file will be identified with mcsFileUnchangedKey.
 
 
 The MIT License (MIT)
@@ -191,7 +199,7 @@ A brief description of each feature follows.
 -CaseInsensitiveSearch=False
 
     Set this switch True and the original version plus both uppercase and
-    lowercase versions of each given mcsOldTextKey value (not mixed-case versions)
+    lowercase versions of each given mcsOldTextKey string (not mixed-case versions)
     will be replaced (see mcsOldTextKey below).
 
 -CopyResultsToSTDOUT=False
@@ -204,10 +212,11 @@ A brief description of each feature follows.
     Set this switch False and replacement results will not be displayed using
     the -DisplayResultsModule (see below).
 
--DisplayResultsModule=Notepad.exe
+-DisplayResultsModule=""Notepad.exe""
 
-    This is the software used to display replacement results (see
-    -DisplayResults) above.
+    This is the software used to display the replacement results.
+
+    Note: the standard filetype association will be used if it's empty.
 
 -FetchSource=False
 
@@ -231,20 +240,30 @@ A brief description of each feature follows.
     Set this switch True and no error pop-up will appear if no files are
     actually found to process.
 
--NewSubValue=""One of many new 'sub replacement' values goes here.""
+-ListSubTokenReplacements=False
 
-    This is a new ""sub replacement"" value to replace the corresponding
-    -OldSubValue (see below) within each mcsOldTextKey value (see below).
+    The list of -SubToken values together with mcsOldSubValKey, mcsNewSubValKey
+    pairs are used to modify the mcsOldTextKey, mcsNewTextKey pairs (see below).
+
+    Set this switch True to have the modified mcsOldTextKey, mcsNewTextKey pairs
+    added to the profile for your perusal after processing completes.
+
+mcsNewSubValKey=""One of many new 'sub replacement' values goes here.""
+
+    This is a new ""sub replacement"" value used in lieu of the corresponding
+    mcsOldSubValKey (see below) in each mcsNewTextKey (or, if mcsNewTextKey is empty, a
+    copy of the corresponding mcsOldTextKey) to replace an embedded -SubToken.
+    If mcsNewSubValKey is empty, the corresponding mcsOldSubValKey will be used.
 
     See -SubToken below for more details.
 
     Note: This key may appear any number of times in the profile.
 
-mcsNewTextKey=""One of many new text replacement substrings goes here.""
+mcsNewTextKey=""One of many new text replacement strings goes here.""
 
-    This is a new text substring to replace a corresponding old text
-    substring (see mcsOldTextKey below) in all of the files given by the
-    various -Files specifications (see above).
+    This is a new text string to replace a corresponding old text string
+    (see mcsOldTextKey below) in all of the files given by the various -Files
+    specifications (see above).
 
     Note: This key may appear any number of times in the profile.
 
@@ -254,20 +273,20 @@ mcsNewTextKey=""One of many new text replacement substrings goes here.""
     use this switch whenever the software is run via a server computer batch
     job or job scheduler (ie. where no user interaction is permitted).
 
--OldSubValue=""One of many old 'sub replacement' values goes here.""
+mcsOldSubValKey=""One of many old 'sub replacement' values goes here.""
 
-    This is an old ""sub replacement"" value to replace the corresponding
-    -NewSubValue (see above) within each mcsOldTextKey value (see below).
+    This is an old ""sub replacement"" value used to replace an embedded
+    -SubToken within each mcsOldTextKey string (see below).
 
     See -SubToken below for more details.
 
     Note: This key may appear any number of times in the profile.
 
-mcsOldTextKey=""One of many old text substrings to replace goes here.""
+mcsOldTextKey=""One of many old text strings to replace goes here.""
 
-    This is an old text substring to be replaced by a corresponding
-    new text substring (see mcsNewTextKey above) in all of the files given
-    by the various -Files specifications (see above).
+    This is an old text string to be replaced by a corresponding new text
+    string (see mcsNewTextKey above) in all of the files given by the various
+    -Files specifications (see above).
 
     Note: This key may appear any number of times in the profile.
 
@@ -279,6 +298,11 @@ mcsOldTextKey=""One of many old text substrings to replace goes here.""
     found in every subdirectory from each base subdirectory onward will
     be searched.
 
+    Note: BE CAREFUL!!! Hundreds or thousands of files could be impacted!
+
+    Always use ""-SearchOnly=True"" for the first run. That way you can
+    see the scope of any potential damage before the damage is done.
+
 -SaveProfile=True
 
     Set this switch False to prevent saving to the profile file by this
@@ -287,63 +311,77 @@ mcsOldTextKey=""One of many old text substrings to replace goes here.""
 
 -SaveSansCmdLine=True
 
-    Set this switch False to leave the profile file untouched after a command-
-    line has been passed to the EXE and merged with the profile. When true,
-    everything but command-line keys will be saved. When false, not even status
-    information will be written to the profile file (ie. ""{INI}"").
+    Set this switch False to leave the profile file untouched after a
+    command-line has been passed to the EXE and merged with the profile.
+    When True, everything but command-line keys will be saved. When False,
+    not even status information will be written to the profile file (ie.
+    ""{INI}"").
 
 -SearchOnly=True
 
     Set this switch False and all files matching the specifications in
     the -Files parameters (see above) will be updated if they contain at
-    least one mcsOldTextKey value (see above). Otherwise, each matching file
-    that contains at least one mcsOldTextKey value will be displayed with the
+    least one mcsOldTextKey string (see above). Otherwise, each matching file
+    that contains at least one mcsOldTextKey string will be displayed with the
     mcsFoundTextKey key.
 
 -ShowProfile=False
 
     Set this switch True to immediately display the entire contents of the
-    profile file at startup in command-line format. This may be helpful as a
-    diagnostic.
+    profile file at startup in command-line format. This may be helpful as
+    a diagnostic.
 
--SubToken={SubToken}
+-SubToken=""One of many 'sub replacement' tokens goes here.""
 
-    A ""sub replacement token"" (lsSubReplacementToken) can be used to
-    pass a common substring value referenced as (-OldSubValue) to be
-    replaced with the corresponding -NewSubValue (see above) within each
-    (mcsOldTextKey) value.
+    A ""sub replacement token"" can be used to pass common substring values
+    (referenced as mcsOldSubValKey, see above) into various mcsOldTextKey strings.
+    The same token can also be used to pass separate common substring values
+    (referenced as mcsNewSubValKey, see above) into various mcsNewTextKey strings.
 
-    Any number of -OldSubValue,-NewSubValue pairs can be given, all of
-    which will be replaced in every mcsOldTextKey value (if found there).
+    Any number of mcsOldSubValKey, mcsNewSubValKey pairs can be inserted into
+    various mcsOldTextKey, mcsNewTextKey pairs that contain at least one -SubToken.
+
+    If there are fewer -SubToken values than mcsOldSubValKey, mcsNewSubValKey
+    pairs, the last -SubToken defined will be used for the balance of
+    mcsOldSubValKey, mcsNewSubValKey pairs.
 
     This feature is useful if you have many text fragments that differ
-    only in minor ways. This way you can list a single mcsOldTextKey value
-    (or a few) and have many -OldSubValue,-NewSubValue pairs to drive
-    the replacement process.
+    only in minor ways. This way you can list a single mcsOldTextKey string
+    (or a few) and have many mcsOldSubValKey, mcsNewSubValKey pairs driving the
+    replacement process with the various sub-replacements filled-in.
 
-    Each instance of mcsOldTextKey will have its {{SubToken}} replaced with
-    each -OldSubValue. Likewise, each instance of mcsNewTextKey will be
-    replaced with a copy of the original mcsOldTextKey with {{SubToken}}
-    replaced with the corresponding -NewSubValue.
+    Suppose -SubToken=""{{SubToken}}"". Each instance of mcsOldTextKey will have
+    its {{SubToken}} replaced with each mcsOldSubValKey. Likewise, each instance
+    of mcsNewTextKey will have its {{SubToken}} replaced with each mcsNewSubValKey.
+    If mcsNewTextKey is empty, it will be replaced with a copy of the original
+    mcsOldTextKey with {{SubToken}} replaced with each mcsNewSubValKey.
 
-    Finally, the modified pairs of mcsOldTextKey,mcsNewTextKey values will be used
-    to replace text within your files (see -Files above).
+    Finally, the modified list of mcsOldTextKey, mcsNewTextKey pairs will then be
+    used to replace text within your files (see -Files above).
 
     Here's an example:
 
-        mcsOldTextKey=Old text {{SubToken}} to be replaced.
-        mcsNewTextKey=(This will be ignored.)
-        -OldSubValue=abc
-        -NewSubValue=def
-        -OldSubValue=123
-        -NewSubValue=456
+        -SubToken={ST1)
+        -SubToken={ST2)
+        mcsOldSubValKey=abc
+        mcsNewSubValKey=def
+        mcsOldSubValKey=123
+        mcsNewSubValKey=456
+        mcsOldSubValKey=uvw
+        mcsNewSubValKey=xyz
+        mcsOldTextKey=Old text {{ST1}} to be replaced.
+        mcsNewTextKey=
+        mcsOldTextKey=More old text {{ST2}} to be replaced.
+        mcsNewTextKey=New text {{ST2}} now in its place.
 
-        Here are the resulting mcsOldTextKey,mcsNewTextKey pairs that would be used:
+        Here are the mcsOldTextKey, mcsNewTextKey pairs that would result:
 
         mcsOldTextKey=Old text abc to be replaced.
         mcsNewTextKey=Old text def to be replaced.
-        mcsOldTextKey=Old text 123 to be replaced.
-        mcsNewTextKey=Old text 456 to be replaced.
+        mcsOldTextKey=More old text 123 to be replaced.
+        mcsNewTextKey=New text 456 now in its place.
+        mcsOldTextKey=More old text uvw to be replaced.
+        mcsNewTextKey=New text xyz now in its place.
 
 -TrackItemsFoundPerFile=False
 
@@ -358,15 +396,18 @@ mcsOldTextKey=""One of many old text substrings to replace goes here.""
 
 -UseRegularExpressions=False
 
-    Set this switch True to use regular expressions in the mcsOldTextKey values
-    (see above). Even with -UseRegularExpressions=False, you can still use
+    Set this switch True to use regular expressions in mcsOldTextKey strings
+    (see above) as well as capture groups in the corresponding mcsNewTextKey
+    strings. Even with -UseRegularExpressions set False, you can still use
     standard regular expression escapes to replace most special characters
     (be sure to set -UseSpecialCharacters=True, see below).
 
 -UseSpecialCharacters=False
 
-    Set this switch True to use special characters in the mcsOldTextKey
-    values (see above). Here are the supported special characters:
+    Set this switch True to use special characters in mcsOldTextKey strings
+    as well as in mcsNewTextKey strings (see above).
+
+    Here are the supported special characters:
 
     \b  = bell
     \e  = escape
@@ -395,12 +436,13 @@ Notes:
     (in order of execution) to ""{INI}"" as the software runs.
 
 "
-                        .Replace("lsSubReplacementToken", lsSubReplacementToken)
                         .Replace("mcsFoundTextKey", mcsFoundTextKey)
                         .Replace("mcsFileChangedKey", mcsFileChangedKey)
                         .Replace("mcsFileUnchangedKey", mcsFileUnchangedKey)
                         .Replace("mcsNewTextKey", mcsNewTextKey)
                         .Replace("mcsOldTextKey", mcsOldTextKey)
+                        .Replace("mcsNewSubValKey", mcsNewSubValKey)
+                        .Replace("mcsOldSubValKey", mcsOldSubValKey)
                         .Replace("{EXE}", System.AppDomain.CurrentDomain.FriendlyName)
                         .Replace("{INI}", Path.GetFileName(loProfile.sActualPathFile))
                         .Replace("{{", "{")
@@ -409,7 +451,7 @@ Notes:
 
                 if ( lbUseRegularExpressions )
                 {
-                    leRegexOptions = (RegexOptions)loProfile.iValue("-RegexOptions", (int)RegexOptions.Singleline);
+                    leRegexOptions = (RegexOptions)loProfile.iValue("-RegexOptions", (int)RegexOptions.Multiline);
                     loProfile.GetAdd("-RegexOptionsHelp",
                             @"
 Apply a boolean ""or"" to any of the following:
@@ -441,29 +483,19 @@ Apply a boolean ""or"" to any of the following:
                 string[]    lsFilesToReplacePathFilesArray = loProfile.sOneKeyArray("-Files");
                             loProfile.GetAdd("-Files", "One of many 'files to replace' pathfile(s) specifications goes here.");
                 tvProfile   loOldTextToReplaceProfile = loProfile.oOneKeyProfile(mcsOldTextKey, false);
-                            loProfile.GetAdd(mcsOldTextKey, "One of many old text substrings to replace goes here.");
+                            loProfile.GetAdd(mcsOldTextKey, "One of many old text strings to replace goes here.");
                             this.ReplaceSpecialCharacters(loOldTextToReplaceProfile);
-                string[]    lsOldTextToReplaceArray = loOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
+                string[]    lsOldTextToReplaceArrayBase = loOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
                 string[]    lsOldTextToReplaceArrayToLower = null;
                 string[]    lsOldTextToReplaceArrayToUpper = null;
-                            if ( lbCaseInsensitiveSearch )
-                            {
-                                lsOldTextToReplaceArrayToLower = new string[lsOldTextToReplaceArray.Length];
-                                lsOldTextToReplaceArrayToUpper = new string[lsOldTextToReplaceArray.Length];
+                tvProfile   loNewTextProfile = loProfile.oOneKeyProfile(mcsNewTextKey, false);
+                            loProfile.GetAdd(mcsNewTextKey, "One of many new text replacement strings goes here.");
+                            this.ReplaceSpecialCharacters(loNewTextProfile);
+                string[]    lsNewTextArrayBase = loNewTextProfile.sOneKeyArrayNoTrim(mcsNewTextKey);
 
-                                for (int i=0; i < lsOldTextToReplaceArray.Length; i++)
-                                {
-                                    lsOldTextToReplaceArrayToLower[i] = lsOldTextToReplaceArray[i].ToLower();
-                                    lsOldTextToReplaceArrayToUpper[i] = lsOldTextToReplaceArray[i].ToUpper();
-                                }
-                            }
-                string[]    lsNewTextArray = loProfile.sOneKeyArrayNoTrim(mcsNewTextKey);
-                            loProfile.GetAdd(mcsNewTextKey, "One of many new text replacement substrings goes here.");
-                            this.ReplaceSpecialCharacters(lsNewTextArray);
-
-                            if ( lsNewTextArray.Length != lsOldTextToReplaceArray.Length )
+                            if ( lsNewTextArrayBase.Length != lsOldTextToReplaceArrayBase.Length )
                                 lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine)
-                                        + "The number of mcsNewTextKey items must match the number of mcsOldTextKey items.".Replace("mcsOldTextKey", mcsOldTextKey).Replace("mcsNewTextKey", mcsNewTextKey);
+                                        + String.Format("The number of {0} items must match the number of {1} items.", mcsNewTextKey, mcsOldTextKey);
 
                 tvProfile   loDiscrepanciesProfile   = new tvProfile();
                 tvProfile   loFilesChangedProfile = new tvProfile();
@@ -477,6 +509,129 @@ Apply a boolean ""or"" to any of the following:
 
                 if ( null == lsErrorMessages )
                 {
+                    string[]    lsOldTextToReplaceArrayFull = new string[lsOldSubReplacementArray.Length * lsOldTextToReplaceArrayBase.Length];
+                    string[]    lsNewTextArrayFull = new string[lsOldTextToReplaceArrayFull.Length];
+
+                    for (int liSubReplacementIndex = 0; liSubReplacementIndex < lsOldSubReplacementArray.Length; liSubReplacementIndex++)
+                    {
+                        string  lsSubReplacementToken = null;
+                                if ( liSubReplacementIndex < lsSubTokenArray.Length )
+                                    lsSubReplacementToken = lsSubTokenArray[liSubReplacementIndex];
+                                else
+                                    lsSubReplacementToken = lsSubTokenArray[lsSubTokenArray.Length - 1];    // The last token is the default.
+                        string  lsNewSubValue = null;
+                                if ( String.IsNullOrEmpty(lsNewSubReplacementArray[liSubReplacementIndex]) )
+                                    lsNewSubValue = lsOldSubReplacementArray[liSubReplacementIndex];
+                                else
+                                    lsNewSubValue = lsNewSubReplacementArray[liSubReplacementIndex];
+
+                        if ( 0 == liSubReplacementIndex )
+                        {
+                            // Replace the token in the old and new arrays.
+                            for (int i=0; i < lsOldTextToReplaceArrayBase.Length; i++)
+                            {
+                                lsOldTextToReplaceArrayFull[i]
+                                        = lsOldTextToReplaceArrayBase[i].Replace(lsSubReplacementToken, lsOldSubReplacementArray[liSubReplacementIndex]);
+
+                                if ( !String.IsNullOrEmpty(lsNewTextArrayBase[i]) )
+                                {
+                                    lsNewTextArrayFull[i] = lsNewTextArrayBase[i]
+                                            .Replace(lsSubReplacementToken, lsNewSubValue);
+                                }
+                                else
+                                {
+                                    bool    lbHasToken = false;
+                                            foreach(string lsToken in lsSubTokenArray)
+                                                if ( lsOldTextToReplaceArrayBase[i].Contains(lsToken) )
+                                                {
+                                                    lbHasToken = true;
+                                                    break;
+                                                }
+                                    
+                                    // Leave new text empty if old text has no tokens.
+                                    lsNewTextArrayFull[i] = !lbHasToken ? ""
+                                            : lsOldTextToReplaceArrayBase[i].Replace(lsSubReplacementToken, lsNewSubValue);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Replace the token in the old and new arrays. If token not found in either, set old text empty.
+                            for (int i=0; i < lsOldTextToReplaceArrayBase.Length; i++)
+                            {
+                                if ( !lsOldTextToReplaceArrayBase[i].Contains(lsSubReplacementToken) && !lsNewTextArrayBase[i].Contains(lsSubReplacementToken) )
+                                {
+                                    lsOldTextToReplaceArrayFull[liSubReplacementIndex * lsOldTextToReplaceArrayBase.Length + i] = "";
+                                    lsNewTextArrayFull[liSubReplacementIndex * lsOldTextToReplaceArrayBase.Length + i] = "";
+                                }
+                                else
+                                {
+                                    lsOldTextToReplaceArrayFull[liSubReplacementIndex * lsOldTextToReplaceArrayBase.Length + i]
+                                            = lsOldTextToReplaceArrayBase[i].Replace(lsSubReplacementToken, lsOldSubReplacementArray[liSubReplacementIndex]);
+
+                                    if ( String.IsNullOrEmpty(lsNewTextArrayBase[i]) )
+                                        lsNewTextArrayFull[liSubReplacementIndex * lsNewTextArrayBase.Length + i]
+                                                = lsOldTextToReplaceArrayBase[i].Replace(lsSubReplacementToken, lsNewSubValue);
+                                    else
+                                        lsNewTextArrayFull[liSubReplacementIndex * lsNewTextArrayBase.Length + i]
+                                                = lsNewTextArrayBase[i].Replace(lsSubReplacementToken, lsNewSubValue);
+                                }
+                            }
+                        }
+                    }
+
+                    // Blank any old text values where old text or new text still contain any token.
+                    foreach(string lsToken in lsSubTokenArray)
+                        for (int i=0; i < lsOldTextToReplaceArrayFull.Length; i++)
+                            if ( lsOldTextToReplaceArrayFull[i].Contains(lsToken) || lsNewTextArrayFull[i].Contains(lsToken) )
+                                lsOldTextToReplaceArrayFull[i] = "";
+
+                    // Shrink arrays (ie. remove blanks).
+                    int         liNewArraySize = 0;
+                                for (int i=0; i < lsOldTextToReplaceArrayFull.Length; i++)
+                                    if ( "" != lsOldTextToReplaceArrayFull[i] )
+                                        liNewArraySize++;
+                    int         liNewArrayIndex = 0;
+                    string[]    lsOldTextToReplaceArray = new string[liNewArraySize];
+                    string[]    lsNewTextArray = new string[liNewArraySize];
+                                for (int i=0; i < lsOldTextToReplaceArrayFull.Length; i++)
+                                    if ( "" != lsOldTextToReplaceArrayFull[i] )
+                                    {
+                                        lsOldTextToReplaceArray[liNewArrayIndex] = lsOldTextToReplaceArrayFull[i];
+                                        lsNewTextArray[liNewArrayIndex++] = lsNewTextArrayFull[i];
+                                    }
+
+                    if ( lbCaseInsensitiveSearch )
+                    {
+                        lsOldTextToReplaceArrayToLower = new string[lsOldTextToReplaceArray.Length];
+                        lsOldTextToReplaceArrayToUpper = new string[lsOldTextToReplaceArray.Length];
+
+                        for (int i=0; i < lsOldTextToReplaceArray.Length; i++)
+                        {
+                            lsOldTextToReplaceArrayToLower[i] = lsOldTextToReplaceArray[i].ToLower();
+                            lsOldTextToReplaceArrayToUpper[i] = lsOldTextToReplaceArray[i].ToUpper();
+                        }
+                    }
+
+                    if ( !lbListSubTokenReplacements )
+                    {
+                        loProfile.Remove(mcsSubTokenResults);
+                    }
+                    else
+                    {
+                        loProfile.Remove(mcsSubTokenResults);
+
+                        tvProfile loSubTokenReplacements = loProfile.oProfile(mcsSubTokenResults);
+
+                        for (int i=0; i < lsOldTextToReplaceArray.Length; i++)
+                        {
+                            loSubTokenReplacements.Add(mcsOldTextKey, lsOldTextToReplaceArray[i]);
+                            loSubTokenReplacements.Add(mcsNewTextKey, lsNewTextArray[i]);
+                        }
+
+                        loProfile[mcsSubTokenResults] = loSubTokenReplacements.sCommandBlock();
+                    }
+
                     foreach (string lsFilesToReplacePathFiles in lsFilesToReplacePathFilesArray)
                     {
                         System.Windows.Forms.Application.DoEvents();
@@ -486,9 +641,6 @@ Apply a boolean ""or"" to any of the following:
 
                         string lsErrors = this.ReplacePathFiles(
                                   lsFilesToReplacePathFiles
-                                , ref lsOldSubReplacementArray
-                                , ref lsNewSubReplacementArray
-                                , ref loOldTextToReplaceProfile
                                 , ref lsOldTextToReplaceArray
                                 , ref lsOldTextToReplaceArrayToLower
                                 , ref lsOldTextToReplaceArrayToUpper
@@ -655,6 +807,23 @@ Apply a boolean ""or"" to any of the following:
                                 , lsWord), String.Format("{0} - {1} {2} Found", this.Text, loDiscrepanciesProfile.Count, lsWord));
                     }
                 }
+
+                string[]    lsKeysArray = new string[]{mcsFileChangedKey, mcsFileUnchangedKey, mcsFoundTextKey};
+                tvProfile   loOrderedProfile = new tvProfile();
+                            foreach(DictionaryEntry loEntry in loProfile)
+                                if ( lsKeysArray.Any(loEntry.Key.ToString().Contains) )
+                                    loOrderedProfile.Add(loEntry);
+
+                            foreach(DictionaryEntry loEntry in loProfile)
+                                if ( !lsKeysArray.Any(loEntry.Key.ToString().Contains) )
+                                    loOrderedProfile.Add(loEntry);
+
+                            loProfile.Remove("*");
+
+                            foreach(DictionaryEntry loEntry in loOrderedProfile)
+                                loProfile.Add(loEntry);
+
+                            loProfile.Save();
             }
             catch (Exception ex)
             {
@@ -672,37 +841,41 @@ Apply a boolean ""or"" to any of the following:
                     Console.Write(lsErrorMessages);
             }
 
-            string[]    lsKeysArray = new string[]{mcsFileChangedKey, mcsFileUnchangedKey, mcsFoundTextKey};
-            tvProfile   loOrderedProfile = new tvProfile();
-                        foreach(DictionaryEntry loEntry in loProfile)
-                            if ( lsKeysArray.Any(loEntry.Key.ToString().Contains) )
-                                loOrderedProfile.Add(loEntry);
-
-                        foreach(DictionaryEntry loEntry in loProfile)
-                            if ( !lsKeysArray.Any(loEntry.Key.ToString().Contains) )
-                                loOrderedProfile.Add(loEntry);
-
-                        loProfile.Remove("*");
-
-                        foreach(DictionaryEntry loEntry in loOrderedProfile)
-                            loProfile.Add(loEntry);
-
-                        loProfile.Save();
-
-            this.Close();
-
             if ( lbDisplayResults )
             {
+                lsErrorMessages = null;
                 loProfile.bEnableFileLock = false;
-                Process.Start(lsDisplayResultsCommand, loProfile.sLoadedPathFile);
+
+                try
+                {
+                    if ( String.IsNullOrEmpty(lsDisplayResultsCommand) )
+                        Process.Start(loProfile.sLoadedPathFile);
+                    else
+                        Process.Start(lsDisplayResultsCommand, loProfile.sLoadedPathFile);
+                }
+                catch (Exception ex)
+                {
+                    lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine) + ex.Message
+                                            + String.Format(" (-DisplayResultsModule=\"{0}\")", lsDisplayResultsCommand);
+                }
+
+                if ( null != lsErrorMessages )
+                {
+                    Environment.ExitCode = 1;
+
+                    if ( !lbNoPrompts )
+                        System.Windows.Forms.MessageBox.Show(lsErrorMessages, this.Text);
+
+                    if ( lbCopyResultsToSTDOUT )
+                        Console.Write(lsErrorMessages);
+                }
             }
+
+            this.Close();
         }
 
         private string ReplacePathFiles(
               string asPathFiles
-            , ref string[] asOldSubReplacementArray
-            , ref string[] asNewSubReplacementArray
-            , ref tvProfile aoOldTextToReplaceProfile
             , ref string[] asOldTextToReplaceArray
             , ref string[] asOldTextToReplaceArrayToLower
             , ref string[] asOldTextToReplaceArrayToUpper
@@ -717,7 +890,6 @@ Apply a boolean ""or"" to any of the following:
             )
         {
             string      lsErrorMessages = null;
-            string      lsSubReplacementToken = aoProfile.sValue("-SubToken", "{SubToken}");
             bool        lbNoPrompts = aoProfile.bValue("-NoPrompts", false);
             bool        lbIgnoreNoFilesFound = aoProfile.bValue("-IgnoreNoFilesFound", false);
             bool        lbSearchOnly = aoProfile.bValue("-SearchOnly", false);
@@ -728,14 +900,6 @@ Apply a boolean ""or"" to any of the following:
                             leRegexOptions = (RegexOptions)aoProfile.iValue("-RegexOptions", (int)RegexOptions.Singleline);
             bool        lbRecurseSubdirectories = aoProfile.bValue("-RecurseSubdirectories", false);
             bool        lbTrackItemsFoundPerFile = aoProfile.bValue("-TrackItemsFoundPerFile", false);
-            bool        lbHasToken = false;
-                        if ( !String.IsNullOrEmpty(lsSubReplacementToken) )
-                            for (int i=0; i < asOldTextToReplaceArray.Length; i++)
-                            {
-                                lbHasToken = asOldTextToReplaceArray[i].IndexOf(lsSubReplacementToken) > -1;
-                                if ( lbHasToken )
-                                    break;
-                            }
             string      lsFilesToReplacePath = Path.GetDirectoryName(asPathFiles);
                         if ( "" == lsFilesToReplacePath )
                             lsFilesToReplacePath = ".";
@@ -753,9 +917,10 @@ Apply a boolean ""or"" to any of the following:
 
                 foreach (string lsFilesToReplacePathFile in lsFilesToReplacePathFilesArray)
                 {
-                    // Don't include the profile file currently in use.
-                    if ( Path.GetFullPath(lsFilesToReplacePathFile) == msCurrentProfileAbsPathFile )
-                        continue;
+                    // Don't include the EXE or the profile file currently in use.
+                    string  lsAbsPathFile = Path.GetFullPath(lsFilesToReplacePathFile);
+                            if ( lsAbsPathFile == msCurrentExeAbsPathFile || lsAbsPathFile == msCurrentIniAbsPathFile )
+                                continue;
 
                     System.Windows.Forms.Application.DoEvents();
 
@@ -778,143 +943,124 @@ Apply a boolean ""or"" to any of the following:
                         // Append a trailing newline character to allow for EOF block matches.
                         string lsFileAsStream = File.ReadAllText(lsFilesToReplacePathFile) + Environment.NewLine;
                         string lsOriginalFileAsStream = lsFileAsStream;
-                        for (int liSubReplaceIndex = 0; liSubReplaceIndex < asOldSubReplacementArray.Length; liSubReplaceIndex++)
+
+                        if ( !lbCaseInsensitiveSearch )
                         {
-                            if ( lbHasToken )
+                            if ( lbUseRegularExpressions )
                             {
-                                // Reset the old text array before replacing tokens.
-                                asOldTextToReplaceArray = aoOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
-
+                                // Replace old with new text strings.
                                 for (int i=0; i < asOldTextToReplaceArray.Length; i++)
-                                    asOldTextToReplaceArray[i] = asOldTextToReplaceArray[i]
-                                            .Replace(lsSubReplacementToken, asOldSubReplacementArray[liSubReplaceIndex]);
-
-                                // Redefine the new text array to that of the old before replacing tokens.
-                                asNewTextArray = aoOldTextToReplaceProfile.sOneKeyArrayNoTrim(mcsOldTextKey);
-
-                                for (int i=0; i < asNewTextArray.Length; i++)
-                                    asNewTextArray[i] = asNewTextArray[i]
-                                            .Replace(lsSubReplacementToken, asNewSubReplacementArray[liSubReplaceIndex]);
-                            }
-
-                            if ( !lbCaseInsensitiveSearch )
-                            {
-                                if ( lbUseRegularExpressions )
                                 {
-                                    // Replace old with new text substrings.
-                                    for (int i=0; i < asOldTextToReplaceArray.Length; i++)
+                                    Regex loRegex = new Regex(asOldTextToReplaceArray[i], leRegexOptions);
+
+                                    if ( !lbTrackItemsFoundPerFile )
                                     {
-                                        Regex loRegex = new Regex(asOldTextToReplaceArray[i], leRegexOptions);
-
-                                        if ( !lbTrackItemsFoundPerFile )
-                                        {
-                                            if ( !lbHasOldText && loRegex.IsMatch(lsFileAsStream) )
-                                                lbHasOldText = true;
-                                        }
-                                        else
-                                        if ( loRegex.IsMatch(lsFileAsStream) )
-                                        {
-                                            if ( !lbHasOldText )
-                                                lbHasOldText = true;
-
-                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
-                                        }
-
-                                        lsFileAsStream = loRegex.Replace(lsFileAsStream, asNewTextArray[i]);
+                                        if ( !lbHasOldText && loRegex.IsMatch(lsFileAsStream) )
+                                            lbHasOldText = true;
                                     }
-                                }
-                                else
-                                {
-                                    StringBuilder lsbFileAsStream = new StringBuilder(lsFileAsStream);
-
-                                    // Replace old with new text substrings.
-                                    for (int i=0; i < asOldTextToReplaceArray.Length; i++)
+                                    else
+                                    if ( loRegex.IsMatch(lsFileAsStream) )
                                     {
-                                        if ( !lbTrackItemsFoundPerFile )
-                                        {
-                                            if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
-                                                lbHasOldText = true;
-                                        }
-                                        else
-                                        if ( lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
-                                        {
-                                            if ( !lbHasOldText )
-                                                lbHasOldText = true;
+                                        if ( !lbHasOldText )
+                                            lbHasOldText = true;
 
-                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
-                                        }
-
-                                        lsbFileAsStream.Replace(asOldTextToReplaceArray[i], asNewTextArray[i]);
+                                        loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
                                     }
 
-                                    lsFileAsStream = lsbFileAsStream.ToString();
+                                    lsFileAsStream = loRegex.Replace(lsFileAsStream, asNewTextArray[i]);
                                 }
                             }
                             else
                             {
-                                if ( lbUseRegularExpressions )
+                                StringBuilder lsbFileAsStream = new StringBuilder(lsFileAsStream);
+
+                                // Replace old with new text strings.
+                                for (int i=0; i < asOldTextToReplaceArray.Length; i++)
                                 {
-                                    // Replace old with new text substrings.
-                                    for (int i=0; i < asOldTextToReplaceArray.Length; i++)
+                                    if ( !lbTrackItemsFoundPerFile )
                                     {
-                                        Regex loRegex = new Regex(asOldTextToReplaceArray[i], leRegexOptions);
-                                        Regex loToLowerRegex = new Regex(asOldTextToReplaceArrayToLower[i], leRegexOptions);
-                                        Regex loToUpperRegex = new Regex(asOldTextToReplaceArrayToUpper[i], leRegexOptions);
-
-                                        if ( !lbTrackItemsFoundPerFile )
-                                        {
-                                            if ( !lbHasOldText && (loRegex.IsMatch(lsFileAsStream) || loToLowerRegex.IsMatch(lsFileAsStream) || loToUpperRegex.IsMatch(lsFileAsStream)) )
-                                                lbHasOldText = true;
-                                        }
-                                        else
-                                        if ( loRegex.IsMatch(lsFileAsStream) || loToLowerRegex.IsMatch(lsFileAsStream) || loToUpperRegex.IsMatch(lsFileAsStream) )
-                                        {
-                                            if ( !lbHasOldText )
-                                                lbHasOldText = true;
-
-                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
-                                        }
-
-                                        lsFileAsStream = loRegex.Replace(lsFileAsStream, asNewTextArray[i]);
-                                        lsFileAsStream = loToLowerRegex.Replace(lsFileAsStream, asNewTextArray[i]);
-                                        lsFileAsStream = loToUpperRegex.Replace(lsFileAsStream, asNewTextArray[i]);
+                                        if ( !lbHasOldText && lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
+                                            lbHasOldText = true;
                                     }
-                                }
-                                else
-                                {
-                                    StringBuilder lsbFileAsStream = new StringBuilder(lsFileAsStream);
-
-                                    // Replace old with new text substrings.
-                                    for (int i=0; i < asOldTextToReplaceArray.Length; i++)
+                                    else
+                                    if ( lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1 )
                                     {
-                                        if ( !lbTrackItemsFoundPerFile )
-                                        {
-                                            if ( !lbHasOldText && (lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1
-                                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1
-                                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1
-                                                                )
-                                                        )
-                                                lbHasOldText = true;
-                                        }
-                                        else
-                                        if (       lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1
-                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1
-                                                || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1
-                                                )
-                                        {
-                                            if ( !lbHasOldText )
-                                                lbHasOldText = true;
+                                        if ( !lbHasOldText )
+                                            lbHasOldText = true;
 
-                                            loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
-                                        }
-
-                                        lsbFileAsStream.Replace(asOldTextToReplaceArray[i], asNewTextArray[i]);
-                                        lsbFileAsStream.Replace(asOldTextToReplaceArrayToLower[i], asNewTextArray[i]);
-                                        lsbFileAsStream.Replace(asOldTextToReplaceArrayToUpper[i], asNewTextArray[i]);
+                                        loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
                                     }
 
-                                    lsFileAsStream = lsbFileAsStream.ToString();
+                                    lsbFileAsStream.Replace(asOldTextToReplaceArray[i], asNewTextArray[i]);
                                 }
+
+                                lsFileAsStream = lsbFileAsStream.ToString();
+                            }
+                        }
+                        else
+                        {
+                            if ( lbUseRegularExpressions )
+                            {
+                                // Replace old with new text strings.
+                                for (int i=0; i < asOldTextToReplaceArray.Length; i++)
+                                {
+                                    Regex loRegex = new Regex(asOldTextToReplaceArray[i], leRegexOptions);
+                                    Regex loToLowerRegex = new Regex(asOldTextToReplaceArrayToLower[i], leRegexOptions);
+                                    Regex loToUpperRegex = new Regex(asOldTextToReplaceArrayToUpper[i], leRegexOptions);
+
+                                    if ( !lbTrackItemsFoundPerFile )
+                                    {
+                                        if ( !lbHasOldText && (loRegex.IsMatch(lsFileAsStream) || loToLowerRegex.IsMatch(lsFileAsStream) || loToUpperRegex.IsMatch(lsFileAsStream)) )
+                                            lbHasOldText = true;
+                                    }
+                                    else
+                                    if ( loRegex.IsMatch(lsFileAsStream) || loToLowerRegex.IsMatch(lsFileAsStream) || loToUpperRegex.IsMatch(lsFileAsStream) )
+                                    {
+                                        if ( !lbHasOldText )
+                                            lbHasOldText = true;
+
+                                        loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
+                                    }
+
+                                    lsFileAsStream = loRegex.Replace(lsFileAsStream, asNewTextArray[i]);
+                                    lsFileAsStream = loToLowerRegex.Replace(lsFileAsStream, asNewTextArray[i]);
+                                    lsFileAsStream = loToUpperRegex.Replace(lsFileAsStream, asNewTextArray[i]);
+                                }
+                            }
+                            else
+                            {
+                                StringBuilder lsbFileAsStream = new StringBuilder(lsFileAsStream);
+
+                                // Replace old with new text strings.
+                                for (int i=0; i < asOldTextToReplaceArray.Length; i++)
+                                {
+                                    if ( !lbTrackItemsFoundPerFile )
+                                    {
+                                        if ( !lbHasOldText && (lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1
+                                                            || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1
+                                                            || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1
+                                                            )
+                                                    )
+                                            lbHasOldText = true;
+                                    }
+                                    else
+                                    if (       lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArray[i]) > -1
+                                            || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToLower[i]) > -1
+                                            || lsOriginalFileAsStream.IndexOf(asOldTextToReplaceArrayToUpper[i]) > -1
+                                            )
+                                    {
+                                        if ( !lbHasOldText )
+                                            lbHasOldText = true;
+
+                                        loOldTextFoundList.Add(asOldTextToReplaceArray[i]);
+                                    }
+
+                                    lsbFileAsStream.Replace(asOldTextToReplaceArray[i], asNewTextArray[i]);
+                                    lsbFileAsStream.Replace(asOldTextToReplaceArrayToLower[i], asNewTextArray[i]);
+                                    lsbFileAsStream.Replace(asOldTextToReplaceArrayToUpper[i], asNewTextArray[i]);
+                                }
+
+                                lsFileAsStream = lsbFileAsStream.ToString();
                             }
                         }
 
@@ -989,9 +1135,6 @@ Apply a boolean ""or"" to any of the following:
                     // Replace text in all applicable files in the current subfolder.
                     string lsErrors = this.ReplacePathFiles(
                               Path.Combine(lsSubfolder, lsFilesToReplaceFiles)
-                            , ref asOldSubReplacementArray
-                            , ref asNewSubReplacementArray
-                            , ref aoOldTextToReplaceProfile
                             , ref asOldTextToReplaceArray
                             , ref asOldTextToReplaceArrayToLower
                             , ref asOldTextToReplaceArrayToUpper

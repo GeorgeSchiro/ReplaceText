@@ -89,7 +89,7 @@ Options and Features
 -CaseInsensitiveSearch=False
 
     Set this switch True and the original version plus both uppercase and
-    lowercase versions of each given -OldText value (not mixed-case versions)
+    lowercase versions of each given -OldText string (not mixed-case versions)
     will be replaced (see -OldText below).
 
 -CopyResultsToSTDOUT=False
@@ -102,10 +102,11 @@ Options and Features
     Set this switch False and replacement results will not be displayed using
     the -DisplayResultsModule (see below).
 
--DisplayResultsModule=Notepad.exe
+-DisplayResultsModule="Notepad.exe"
 
-    This is the software used to display replacement results (see
-    -DisplayResults) above.
+    This is the software used to display the replacement results.
+
+    Note: the standard filetype association will be used if it's empty.
 
 -FetchSource=False
 
@@ -129,20 +130,30 @@ Options and Features
     Set this switch True and no error pop-up will appear if no files are
     actually found to process.
 
+-ListSubTokenReplacements=False
+
+    The list of -SubToken values together with -OldSubValue, -NewSubValue
+    pairs are used to modify the -OldText, -NewText pairs (see below).
+
+    Set this switch True to have the modified -OldText, -NewText pairs
+    added to the profile for your perusal after processing completes.
+
 -NewSubValue="One of many new 'sub replacement' values goes here."
 
-    This is a new "sub replacement" value to replace the corresponding
-    -OldSubValue (see below) within each -OldText value (see below).
+    This is a new "sub replacement" value used in lieu of the corresponding
+    -OldSubValue (see below) in each -NewText (or, if -NewText is empty, a
+    copy of the corresponding -OldText) to replace an embedded -SubToken.
+    If -NewSubValue is empty, the corresponding -OldSubValue will be used.
 
     See -SubToken below for more details.
 
     Note: This key may appear any number of times in the profile.
 
--NewText="One of many new text replacement substrings goes here."
+-NewText="One of many new text replacement strings goes here."
 
-    This is a new text substring to replace a corresponding old text
-    substring (see -OldText below) in all of the files given by the
-    various -Files specifications (see above).
+    This is a new text string to replace a corresponding old text string
+    (see -OldText below) in all of the files given by the various -Files
+    specifications (see above).
 
     Note: This key may appear any number of times in the profile.
 
@@ -154,18 +165,18 @@ Options and Features
 
 -OldSubValue="One of many old 'sub replacement' values goes here."
 
-    This is an old "sub replacement" value to replace the corresponding
-    -NewSubValue (see above) within each -OldText value (see below).
+    This is an old "sub replacement" value used to replace an embedded
+    -SubToken within each -OldText string (see below).
 
     See -SubToken below for more details.
 
     Note: This key may appear any number of times in the profile.
 
--OldText="One of many old text substrings to replace goes here."
+-OldText="One of many old text strings to replace goes here."
 
-    This is an old text substring to be replaced by a corresponding
-    new text substring (see -NewText above) in all of the files given
-    by the various -Files specifications (see above).
+    This is an old text string to be replaced by a corresponding new text
+    string (see -NewText above) in all of the files given by the various
+    -Files specifications (see above).
 
     Note: This key may appear any number of times in the profile.
 
@@ -177,6 +188,11 @@ Options and Features
     found in every subdirectory from each base subdirectory onward will
     be searched.
 
+    Note: BE CAREFUL!!! Hundreds or thousands of files could be impacted!
+
+    Always use "-SearchOnly=True" for the first run. That way you can
+    see the scope of any potential damage before the damage is done.
+
 -SaveProfile=True
 
     Set this switch False to prevent saving to the profile file by this
@@ -185,63 +201,77 @@ Options and Features
 
 -SaveSansCmdLine=True
 
-    Set this switch False to leave the profile file untouched after a command-
-    line has been passed to the EXE and merged with the profile. When true,
-    everything but command-line keys will be saved. When false, not even status
-    information will be written to the profile file (ie. "ReplaceText.exe.txt").
+    Set this switch False to leave the profile file untouched after a
+    command-line has been passed to the EXE and merged with the profile.
+    When True, everything but command-line keys will be saved. When False,
+    not even status information will be written to the profile file (ie.
+    "ReplaceText.exe.txt").
 
 -SearchOnly=True
 
     Set this switch False and all files matching the specifications in
     the -Files parameters (see above) will be updated if they contain at
-    least one -OldText value (see above). Otherwise, each matching file
-    that contains at least one -OldText value will be displayed with the
+    least one -OldText string (see above). Otherwise, each matching file
+    that contains at least one -OldText string will be displayed with the
     -FoundIn key.
 
 -ShowProfile=False
 
     Set this switch True to immediately display the entire contents of the
-    profile file at startup in command-line format. This may be helpful as a
-    diagnostic.
+    profile file at startup in command-line format. This may be helpful as
+    a diagnostic.
 
--SubToken="{SubToken}"
+-SubToken="One of many 'sub replacement' tokens goes here."
 
-    A "sub replacement token" ({SubToken}) can be used to
-    pass a common substring value referenced as (-OldSubValue) to be
-    replaced with the corresponding -NewSubValue (see above) within each
-    (-OldText) value.
+    A "sub replacement token" can be used to pass common substring values
+    (referenced as -OldSubValue, see above) into various -OldText strings.
+    The same token can also be used to pass separate common substring values
+    (referenced as -NewSubValue, see above) into various -NewText strings.
 
-    Any number of -OldSubValue,-NewSubValue pairs can be given, all of
-    which will be replaced in every -OldText value (if found there).
+    Any number of -OldSubValue, -NewSubValue pairs can be inserted into
+    various -OldText, -NewText pairs that contain at least one -SubToken.
+
+    If there are fewer -SubToken values than -OldSubValue, -NewSubValue
+    pairs, the last -SubToken defined will be used for the balance of
+    -OldSubValue, -NewSubValue pairs.
 
     This feature is useful if you have many text fragments that differ
-    only in minor ways. This way you can list a single -OldText value
-    (or a few) and have many -OldSubValue,-NewSubValue pairs to drive
-    the replacement process.
+    only in minor ways. This way you can list a single -OldText string
+    (or a few) and have many -OldSubValue, -NewSubValue pairs driving the
+    replacement process with the various sub-replacements filled-in.
 
-    Each instance of -OldText will have its {SubToken} replaced with
-    each -OldSubValue. Likewise, each instance of -NewText will be
-    replaced with a copy of the original -OldText with {SubToken}
-    replaced with the corresponding -NewSubValue.
+    Suppose -SubToken="{SubToken}". Each instance of -OldText will have
+    its {SubToken} replaced with each -OldSubValue. Likewise, each instance
+    of -NewText will have its {SubToken} replaced with each -NewSubValue.
+    If -NewText is empty, it will be replaced with a copy of the original
+    -OldText with {SubToken} replaced with each -NewSubValue.
 
-    Finally, the modified pairs of -OldText,-NewText values will be used
-    to replace text within your files (see -Files above).
+    Finally, the modified list of -OldText, -NewText pairs will then be
+    used to replace text within your files (see -Files above).
 
     Here's an example:
 
-        -OldText=Old text {SubToken} to be replaced.
-        -NewText=(This will be ignored.)
+        -SubToken={ST1)
+        -SubToken={ST2)
         -OldSubValue=abc
         -NewSubValue=def
         -OldSubValue=123
         -NewSubValue=456
+        -OldSubValue=uvw
+        -NewSubValue=xyz
+        -OldText=Old text {ST1} to be replaced.
+        -NewText=
+        -OldText=More old text {ST2} to be replaced.
+        -NewText=New text {ST2} now in its place.
 
-        Here are the resulting -OldText,-NewText pairs that would be used:
+        Here are the -OldText, -NewText pairs that would result:
 
         -OldText=Old text abc to be replaced.
         -NewText=Old text def to be replaced.
-        -OldText=Old text 123 to be replaced.
-        -NewText=Old text 456 to be replaced.
+        -OldText=More old text 123 to be replaced.
+        -NewText=New text 456 now in its place.
+        -OldText=More old text uvw to be replaced.
+        -NewText=New text xyz now in its place.
 
 -TrackItemsFoundPerFile=False
 
@@ -256,15 +286,18 @@ Options and Features
 
 -UseRegularExpressions=False
 
-    Set this switch True to use regular expressions in the -OldText values
-    (see above). Even with -UseRegularExpressions=False, you can still use
+    Set this switch True to use regular expressions in -OldText strings
+    (see above) as well as capture groups in the corresponding -NewText
+    strings. Even with -UseRegularExpressions set False, you can still use
     standard regular expression escapes to replace most special characters
     (be sure to set -UseSpecialCharacters=True, see below).
 
 -UseSpecialCharacters=False
 
-    Set this switch True to use special characters in the -OldText
-    values (see above). Here are the supported special characters:
+    Set this switch True to use special characters in -OldText strings
+    as well as in -NewText strings (see above).
+
+    Here are the supported special characters:
 
     \b  = bell
     \e  = escape
