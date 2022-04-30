@@ -76,6 +76,8 @@ namespace ReplaceText
         private void DoReplaceText_Load(object sender, EventArgs e)
         {
             this.Hide();
+            System.Windows.Forms.Application.UseWaitCursor = true;
+            System.Windows.Forms.Application.DoEvents();
 
             string      lsErrorMessages          = null;
             tvProfile   loProfile                = null;
@@ -89,7 +91,7 @@ namespace ReplaceText
                 loProfile = new tvProfile(Environment.GetCommandLineArgs());
                 if ( loProfile.bExit )
                 {
-                    this.Hide();
+                    this.Close();
                     System.Windows.Forms.Application.Exit();
                     return;
                 }
@@ -135,11 +137,11 @@ the file will be identified with mcsFoundTextKey and it will remain unchanged.
 
                   You should use the -SearchOnly switch instead.
 
-If -SearchOnly is False and mcsNewTextKey and mcsOldTextKey are not identical
-(and mcsOldTextKey is found in a file), the file will be identified with mcsFileChangedKey.
+If -SearchOnly is False and mcsOldTextKey is found in a file (and mcsNewTextKey and
+mcsOldTextKey are not identical), the file will be identified with mcsFileChangedKey.
 
-If -SearchOnly is False and mcsNewTextKey and mcsOldTextKey are not identical (and
-mcsOldTextKey is NOT found in a file), the file will be identified with mcsFileUnchangedKey.
+If -SearchOnly is False and mcsOldTextKey is not found in a file, the file will
+be identified with mcsFileUnchangedKey.
 
 
 The MIT License (MIT)
@@ -235,10 +237,18 @@ A brief description of each feature follows.
 
     This help text.
 
+-IgnoreIOException=False
+
+    Set this switch True to ignore any IOException during file reads.
+
 -IgnoreNoFilesFound=False
 
-    Set this switch True and no error pop-up will appear if no files are
-    actually found to process.
+    Set this switch True to ignore ""no files found"" errors.
+
+-IgnoreUnauthorizedAccess=False
+
+    Set this switch True to ignore any UnauthorizedAccessException
+    during file or directory reads.
 
 -ListSubTokenReplacements=False
 
@@ -311,11 +321,9 @@ mcsOldTextKey=""One of many old text strings to replace goes here.""
 
 -SaveSansCmdLine=True
 
-    Set this switch False to leave the profile file untouched after a
-    command-line has been passed to the EXE and merged with the profile.
-    When True, everything but command-line keys will be saved. When False,
-    not even status information will be written to the profile file (ie.
-    ""{INI}"").
+    Set this switch False to allow merged command-lines to be written to
+    the profile file (ie. ""{INI}""). When True, everything
+    but command-line keys will be saved.
 
 -SearchOnly=True
 
@@ -361,10 +369,10 @@ mcsOldTextKey=""One of many old text strings to replace goes here.""
 
     Here's an example:
 
-        -SubToken={ST1)
-        -SubToken={ST2)
+        -SubToken={{ST1}}
         mcsOldSubValKey=abc
         mcsNewSubValKey=def
+        -SubToken={{ST2}}
         mcsOldSubValKey=123
         mcsNewSubValKey=456
         mcsOldSubValKey=uvw
@@ -469,7 +477,9 @@ Apply a boolean ""or"" to any of the following:
                             lbNoPrompts = loProfile.bValue("-NoPrompts", false);
                             lbDisplayResults = loProfile.bValue("-DisplayResults", true);
                             lsDisplayResultsCommand = loProfile.sValue("-DisplayResultsModule", "Notepad.exe");
+                bool        lbIgnoreIOException = loProfile.bValue("-IgnoreIOException", false);
                 bool        lbIgnoreNoFilesFound = loProfile.bValue("-IgnoreNoFilesFound", false);
+                bool        lbIgnoreUnauthorizedAccess = loProfile.bValue("-IgnoreUnauthorizedAccess", false);
                             lbCopyResultsToSTDOUT = loProfile.bValue("-CopyResultsToSTDOUT", false);
                 bool        lbSearchOnly = loProfile.bValue("-SearchOnly", true);
                 bool        lbRecurseSubdirectories = loProfile.bValue("-RecurseSubdirectories", true);
@@ -829,6 +839,10 @@ Apply a boolean ""or"" to any of the following:
             {
                 lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine) + ex.Message;
             }
+            finally
+            {
+                System.Windows.Forms.Application.UseWaitCursor = false;
+            }
 
             if ( null != lsErrorMessages )
             {
@@ -891,7 +905,10 @@ Apply a boolean ""or"" to any of the following:
         {
             string      lsErrorMessages = null;
             bool        lbNoPrompts = aoProfile.bValue("-NoPrompts", false);
+            bool        lbErrorOnBaseFolder = false;
+            bool        lbIgnoreIOException = aoProfile.bValue("-IgnoreIOException", false);
             bool        lbIgnoreNoFilesFound = aoProfile.bValue("-IgnoreNoFilesFound", false);
+            bool        lbIgnoreUnauthorizedAccess = aoProfile.bValue("-IgnoreUnauthorizedAccess", false);
             bool        lbSearchOnly = aoProfile.bValue("-SearchOnly", false);
             bool        lbCaseInsensitiveSearch = aoProfile.bValue("-CaseInsensitiveSearch", false);
             bool        lbUseRegularExpressions = aoProfile.bValue("-UseRegularExpressions", false);
@@ -905,13 +922,29 @@ Apply a boolean ""or"" to any of the following:
                             lsFilesToReplacePath = ".";
             string      lsFilesToReplaceFiles = Path.GetFileName(asPathFiles);
             string[]    lsFilesToReplacePathFilesArray = null;
-                        if ( Directory.Exists(lsFilesToReplacePath) )
-                            lsFilesToReplacePathFilesArray = Directory.GetFiles(lsFilesToReplacePath, lsFilesToReplaceFiles);
+                        try
+                        {
+                            if ( Directory.Exists(lsFilesToReplacePath) )
+                                lsFilesToReplacePathFilesArray = Directory.GetFiles(lsFilesToReplacePath, lsFilesToReplaceFiles);
+                        }
+                        catch (UnauthorizedAccessException ex)
+                        {
+                            lbErrorOnBaseFolder = true;
+
+                            if ( !lbIgnoreUnauthorizedAccess )
+                                lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine) + ex.Message;
+                        }
+                        catch (Exception ex)
+                        {
+                            lbErrorOnBaseFolder = true;
+
+                            lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine) + ex.Message;
+                        }
 
             abFilesFound = false;
             abErrorOtherThanFilesNotFound = false;
 
-            if ( null != lsFilesToReplacePathFilesArray && 0 != lsFilesToReplacePathFilesArray.Length )
+            if ( !lbErrorOnBaseFolder && null != lsFilesToReplacePathFilesArray && 0 != lsFilesToReplacePathFilesArray.Length )
             {
                 abFilesFound = true;
 
@@ -921,8 +954,6 @@ Apply a boolean ""or"" to any of the following:
                     string  lsAbsPathFile = Path.GetFullPath(lsFilesToReplacePathFile);
                             if ( lsAbsPathFile == msCurrentExeAbsPathFile || lsAbsPathFile == msCurrentIniAbsPathFile )
                                 continue;
-
-                    System.Windows.Forms.Application.DoEvents();
 
                     List<string>    loOldTextFoundList = new List<string>();
                     string          lsFilename = Path.GetFileName(lsFilesToReplacePathFile);
@@ -935,6 +966,8 @@ Apply a boolean ""or"" to any of the following:
                         this.Show();
                         this.Refresh();
                     }
+
+                    System.Windows.Forms.Application.DoEvents();
 
                     bool lbHasOldText = false;
 
@@ -1083,12 +1116,22 @@ Apply a boolean ""or"" to any of the following:
                             aoFilesChangedProfile.Add(mcsFileChangedKey, lsFilesToReplacePathFile);
                         }
                     }
+                    catch (IOException ex)
+                    {
+                        if ( !lbIgnoreIOException )
+                            lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine) + ex.Message;
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        if ( !lbIgnoreUnauthorizedAccess )
+                            lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine) + ex.Message;
+                    }
                     catch (Exception ex)
                     {
                         abErrorOtherThanFilesNotFound = true;
                         lsErrorMessages += (null == lsErrorMessages ? "" : Environment.NewLine + Environment.NewLine)
                                 + String.Format(
-                                  "Error: \"{0}\" occurred while attempting to write to the file: \"{1}\"."
+                                  "Error: \"{0}\" occurred while attempting to read or write to the file: \"{1}\"."
                                 , ex.Message
                                 , lsFilename
                                 );
@@ -1105,7 +1148,7 @@ Apply a boolean ""or"" to any of the following:
                 } // End files loop
             }
 
-            if ( lbRecurseSubdirectories )
+            if ( !lbErrorOnBaseFolder && lbRecurseSubdirectories )
             {
                 // Process the sub-folders in the base folder.
 

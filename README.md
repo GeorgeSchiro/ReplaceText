@@ -125,10 +125,18 @@ Options and Features
 
     This help text.
 
+-IgnoreIOException=False
+
+    Set this switch True to ignore any IOException during file reads.
+
 -IgnoreNoFilesFound=False
 
-    Set this switch True and no error pop-up will appear if no files are
-    actually found to process.
+    Set this switch True to ignore "no files found" errors.
+
+-IgnoreUnauthorizedAccess=False
+
+    Set this switch True to ignore any UnauthorizedAccessException
+    during file or directory reads.
 
 -ListSubTokenReplacements=False
 
@@ -201,11 +209,9 @@ Options and Features
 
 -SaveSansCmdLine=True
 
-    Set this switch False to leave the profile file untouched after a
-    command-line has been passed to the EXE and merged with the profile.
-    When True, everything but command-line keys will be saved. When False,
-    not even status information will be written to the profile file (ie.
-    "ReplaceText.exe.txt").
+    Set this switch False to allow merged command-lines to be written to
+    the profile file (ie. "ReplaceText.exe.txt"). When True, everything
+    but command-line keys will be saved.
 
 -SearchOnly=True
 
@@ -251,10 +257,10 @@ Options and Features
 
     Here's an example:
 
-        -SubToken={ST1)
-        -SubToken={ST2)
+        -SubToken={ST1}
         -OldSubValue=abc
         -NewSubValue=def
+        -SubToken={ST2}
         -OldSubValue=123
         -NewSubValue=456
         -OldSubValue=uvw
